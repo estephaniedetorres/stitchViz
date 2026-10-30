@@ -1,0 +1,2192 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>StitchViz</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="m-0 p-0 w-full overflow-x-hidden bg-gray-100">
+
+<div class="px-16 py-10 max-w-[calc(100vw-17px)]">
+
+<header class="flex justify-between items-start mb-8">
+  <div class="flex items-center gap-3">
+    <img src="{% static 'Logo-stitchViz.jpg' %}" alt="StitchViz Logo" class="h-10 w-10 rounded" />
+    <h1 class="text-3xl font-bold m-0 mb-1">StitchViz</h1>
+  </div>
+  {% if user.is_authenticated %}
+    <p class="text-sm text-gray-600 m-0">{{ user.email }}</p>
+  {% endif %}
+  <div class="flex gap-2.5">
+    <button id="darkModeToggle" class="px-5 py-2.5 bg-white text-black border-2 border-black cursor-pointer rounded font-medium">◐ Dark Mode</button>
+    <button id="exportPNGBtn" class="px-5 py-2.5 bg-white text-black border-2 border-black cursor-pointer rounded font-medium"> Export PNG</button>
+    <button id="exportPDFBtn" class="px-5 py-2.5 bg-white text-black border-2 border-black cursor-pointer rounded font-medium"> Export PDF</button>
+    <button id="savePatternBtn" class="px-5 py-2.5 bg-black text-white border-none cursor-pointer rounded font-medium">◆ Save Pattern</button>
+    <button id="myPatternsBtn" class="px-5 py-2.5 bg-white text-black border-2 border-black cursor-pointer rounded font-medium">■ My Patterns (<span id="patternCount">0</span>)</button>
+    <a href="{% url 'logout' %}"><button class="px-5 py-2.5 bg-white text-black border-2 border-black cursor-pointer rounded font-medium">▲ Logout</button></a>  
+  </div>
+</header>
+
+<hr class="border-0 border-t-2 border-gray-200 my-8">
+
+<!-- Craft Type, Colors, and Stitch Count in aligned grid -->
+<div class="grid grid-cols-3 gap-5 mb-8">
+  <!-- Craft Type Section -->
+  <section class="bg-white border border-gray-200 rounded-lg p-5">
+    <div class="flex justify-between items-center mb-4">
+      <h4 class="m-0 text-base font-semibold">Craft Type</h4>
+      <div class="flex flex-col gap-1">
+        <span class="text-xs text-gray-600">Pattern Mode:</span>
+        <div class="flex gap-1">
+          <button id="rectangularModeBtn" class="px-2 py-1 bg-black text-white border border-black cursor-pointer rounded text-xs">Rectangular</button>
+          <button id="circularModeBtn" class="px-2 py-1 bg-white text-black border border-black cursor-pointer rounded text-xs">Circular</button>
+        </div>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-2" role="tablist" aria-label="Select Craft Type">
+      <div class="craft-card border-2 p-3 cursor-pointer text-center transition-all duration-200 rounded hover:border-gray-400 !bg-black !text-white !border-black" tabindex="0" role="tab" aria-selected="true" data-craft="cross-stitch">
+        <div class="text-2xl mb-1">✕</div>
+        <strong class="block text-xs">Cross-Stitch</strong>
+      </div>
+      <div class="craft-card border-2 border-gray-200 p-3 cursor-pointer text-center transition-all duration-200 bg-white rounded hover:border-gray-400" tabindex="0" role="tab" aria-selected="false" data-craft="knitting">
+        <div class="text-2xl mb-1">≋</div>
+        <strong class="block text-xs">Knitting</strong>
+      </div>
+      <div class="craft-card border-2 border-gray-200 p-3 cursor-pointer text-center transition-all duration-200 bg-white rounded hover:border-gray-400" tabindex="0" role="tab" aria-selected="false" data-craft="crochet">
+        <div class="text-2xl mb-1">○</div>
+        <strong class="block text-xs">Crochet</strong>
+      </div>
+      <div class="craft-card border-2 border-gray-200 p-3 cursor-pointer text-center transition-all duration-200 bg-white rounded hover:border-gray-400" tabindex="0" role="tab" aria-selected="false" data-craft="pixel-art">
+        <div class="text-2xl mb-1">□</div>
+        <strong class="block text-xs">Pixel Art</strong>
+      </div>
+    </div>
+  </section>
+
+  <!-- Colors Section -->
+  <section class="bg-white border border-gray-200 rounded-lg p-5">
+    <h4 class="m-0 mb-4 text-base font-semibold">Colors</h4>
+    <div class="grid grid-cols-6 gap-2 mb-4" id="colorsGrid"></div>
+    <div class="flex items-center justify-between pt-3 border-t border-gray-200">
+      <div class="flex items-center gap-2">
+        <div id="selectedColorPreview" class="w-10 h-10 bg-black border-2 border-gray-800 rounded"></div>
+        <div>
+          <div class="text-xs text-gray-600">Selected</div>
+          <div id="selectedColorHex" class="text-xs font-semibold">#000000</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <input type="color" id="customColorPicker" value="#c45e5e" class="absolute opacity-0 pointer-events-none">
+        <button id="openColorPickerBtn" class="w-10 h-10 bg-[#c45e5e] border-2 border-gray-800 cursor-pointer p-0 rounded"></button>
+        <button id="useCustomColorBtn" class="py-1.5 px-3 bg-black text-white border-none cursor-pointer font-medium rounded text-xs">Use Custom Color</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="bg-white border border-gray-200 rounded-lg p-5">
+    <h4 class="m-0 mb-3 text-sm font-semibold">Stitch Count</h4>
+    <div class="flex justify-between items-center mb-3">
+      <span class="text-xs">Total:</span>
+      <span id="totalStitches" class="text-xl font-bold">0</span>
+    </div>
+    <div id="colorCountList" class="max-h-40 overflow-y-auto border border-gray-300 rounded">
+      <p class="p-3 text-center text-gray-400 m-0 text-xs">Start creating</p>
+    </div>
+    <p class="mt-2 text-gray-600 text-xs text-center" id="colorsUsedText">0 colors</p>
+  </section>
+</div>
+
+<main class="flex gap-5 items-start">
+  <!-- Tools section - moved to left -->
+  <aside class="flex-shrink-0">
+    <section class="bg-white border border-gray-200 rounded-lg p-4 w-52">
+      <h3 class="m-0 mb-3 text-sm font-semibold">Tools</h3>
+      <button id="pencilBtn" class="tool-btn w-full py-2 px-3 mb-1.5 cursor-pointer text-left bg-black text-white border-none rounded text-sm font-medium">✎ Pencil</button>
+      <button id="eraserBtn" class="tool-btn w-full py-2 px-3 mb-1.5 cursor-pointer text-left bg-white border border-gray-800 rounded text-sm">⌫ Eraser</button>
+      <button id="fillBtn" class="tool-btn w-full py-2 px-3 mb-3 cursor-pointer text-left bg-white border border-gray-800 rounded text-sm">◐ Fill</button>
+      <div class="flex gap-2 mb-3">
+        <button id="undoBtn" class="tool-btn w-1/2 py-2 px-3 cursor-pointer text-center bg-white border border-gray-800 rounded text-xs">⟲ Undo</button>
+        <button id="redoBtn" class="tool-btn w-1/2 py-2 px-3 cursor-pointer text-center bg-white border border-gray-800 rounded text-xs">⟳ Redo</button>
+      </div>
+      <button id="uploadPatternBtn" class="tool-btn w-full py-2 px-3 mb-1 cursor-pointer text-center bg-white border border-gray-800 rounded flex items-center justify-center gap-1 text-xs">▲ Upload</button>
+      <input type="file" id="uploadInput" accept="image/*" class="hidden" />
+      <button id="showPatternInputBtn" class="tool-btn w-full py-2 px-3 mb-3 cursor-pointer text-center bg-white border border-gray-800 rounded flex items-center justify-center gap-1 text-xs">Add Text Pattern</button>
+      <label for="gridSizeRange" class="block mb-2 text-xs font-medium"><span id="gridSizeType">Grid Size</span>: <span id="gridSizeLabel">30x30</span></label>
+      <input type="range" id="gridSizeRange" min="10" max="50" step="1" value="30" class="w-full accent-black mb-3" style="appearance: none; -webkit-appearance: none; height: 4px; background: #d1d5db; border-radius: 5px;" />
+      <button id="clearCanvasBtn" class="tool-btn w-full py-2 px-3 cursor-pointer text-center bg-white border border-gray-800 rounded flex items-center justify-center gap-1 text-xs">✕ Clear</button>
+    </section>
+  </aside>
+
+  <!-- Grid in the middle -->
+  <div id="printArea" class="flex-1">
+    <!-- Rectangular Grid Container -->
+    <div id="gridContainer" class="border-2 border-gray-800 p-4 bg-white rounded flex-shrink-0 w-full max-w-[900px] h-[900px] overflow-hidden mx-auto">
+      <div style="display: flex; align-items: flex-start; justify-content: center; height: 100%;">
+        <div id="rowNumbersContainer" style="display: flex; flex-direction: column; align-items: flex-end; gap: 0; margin-right: 5px;"></div>
+        <div style="display: flex; flex-direction: column;">
+          <table id="patternGrid" class="border-collapse bg-white border border-gray-800" aria-describedby="gridDescription" role="grid" tabindex="0"></table>
+          <div id="colNumbersContainer" style="display: flex; justify-content: flex-start; margin-top: 5px; gap: 0;"></div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Circular Grid Container -->
+    <div id="circularGridContainer" class="hidden border-2 border-gray-800 p-4 bg-white rounded flex-shrink-0 w-full max-w-[900px] h-[900px] overflow-hidden flex items-center justify-center mx-auto">
+      <canvas id="circularCanvas" width="800" height="800"></canvas>
+    </div>
+    
+    <div id="printColorList" class="mt-4" style="display: none;"></div>
+  </div>
+
+  <!-- Progress Tracker on the right -->
+  <aside class="flex-shrink-0">
+    <section class="bg-white border border-gray-200 rounded-lg p-4 w-56">
+      <h3 class="m-0 mb-3 text-sm font-semibold">Progress</h3>
+        <hr class="border-0 border-t border-gray-300 my-4">
+        <button id="startTrackingBtn" class="w-full py-3 px-3 cursor-pointer bg-white border border-gray-800 rounded-none flex items-center justify-center gap-2">Start Tracking</button>
+        
+        <div id="trackingContent" class="hidden mt-4">
+          <button id="trackingStatusBtn" class="w-full py-3 px-3 mb-4 bg-black text-white border-none cursor-pointer rounded-none flex items-center justify-center gap-2">Tracking On</button>
+          
+          <div class="border-2 border-gray-800 p-4 mb-4">
+            <div class="text-center mb-3 font-semibold">Current Position</div>
+            <div id="currentPosition" class="text-center text-xl font-bold mb-2">Row 1, Column 1</div>
+            <div id="stitchProgress" class="text-center text-sm mb-3">Stitch 1 of 900 (0%)</div>
+            <div class="w-full bg-gray-200 h-6 mb-3 border border-gray-800">
+              <div id="progressBar" class="bg-black h-full" style="width: 0%"></div>
+            </div>
+            <button id="nextStitchBtn" class="w-full py-3 px-3 bg-black text-white border-none cursor-pointer rounded-none flex items-center justify-center gap-2">Next Stitch →</button>
+          </div>
+          
+          <div class="border-2 border-gray-800 p-4 mb-4">
+            <div class="text-center mb-3 font-semibold">Manual Navigation</div>
+            <div class="flex justify-center mb-2">
+              <button id="navUpBtn" class="w-16 h-12 border border-gray-800 cursor-pointer bg-white flex items-center justify-center">↑</button>
+            </div>
+            <div class="flex justify-center gap-2 mb-2">
+              <button id="navLeftBtn" class="w-16 h-12 border border-gray-800 cursor-pointer bg-white flex items-center justify-center">←</button>
+              <button id="navMoveBtn" class="w-16 h-12 border border-gray-800 cursor-pointer bg-white flex items-center justify-center text-sm">Move</button>
+              <button id="navRightBtn" class="w-16 h-12 border border-gray-800 cursor-pointer bg-white flex items-center justify-center">→</button>
+            </div>
+            <div class="flex justify-center">
+              <button id="navDownBtn" class="w-16 h-12 border border-gray-800 cursor-pointer bg-white flex items-center justify-center">↓</button>
+            </div>
+          </div>
+          
+          <button id="resetTrackingBtn" class="w-full py-3 px-3 border-2 border-gray-800 cursor-pointer bg-white rounded-none flex items-center justify-center gap-2">↻ Reset to Start</button>
+          
+          <!-- Stitch Counter Section -->
+          <div class="border-2 border-gray-800 p-4 mt-4">
+            <div class="text-center mb-3 font-semibold">Stitch Counter</div>
+            
+            <!-- Row Config -->
+            <div class="mb-4 pb-4 border-b border-gray-300">
+              <label class="block text-sm mb-2">Current Row Target:</label>
+              <input type="number" id="rowTargetInput" min="0" value="30" class="w-full p-2 border border-gray-300 mb-2" />
+              <div class="text-xs text-gray-600 text-center">Set the target stitch count for this row</div>
+            </div>
+            
+            <!-- Counter Display -->
+            <div class="text-center mb-4">
+              <div class="text-4xl font-bold mb-2" id="stitchCount">0</div>
+              <div class="text-sm text-gray-600">of <span id="stitchTarget">30</span> stitches</div>
+              <div class="mt-2">
+                <div class="w-full bg-gray-200 h-4 border border-gray-800">
+                  <div id="stitchProgressBar" class="bg-green-500 h-full transition-all" style="width: 0%"></div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Counter Controls -->
+            <div class="grid grid-cols-2 gap-2 mb-3">
+              <button id="decrementStitchBtn" class="py-4 px-3 bg-black text-white border-none cursor-pointer rounded text-2xl font-bold hover:bg-slate-700">−</button>
+              <button id="incrementStitchBtn" class="py-4 px-3 bg-black text-white border-none cursor-pointer rounded text-2xl font-bold hover:bg-slate-700">+</button>
+            </div>
+            
+            <!-- Quick Actions -->
+            <div class="grid grid-cols-2 gap-2">
+              <button id="resetCounterBtn" class="py-2 px-3 bg-white border border-gray-800 cursor-pointer rounded text-sm">Reset Counter</button>
+              <button id="completeRowBtn" class="py-2 px-3 bg-black text-white border-none cursor-pointer rounded text-sm">Mark Complete</button>
+            </div>
+            
+            <!-- Counter History -->
+            <div class="mt-4 pt-4 border-t border-gray-300">
+              <div class="text-xs font-semibold mb-2">Row History:</div>
+              <div id="rowHistory" class="text-xs text-gray-600 max-h-32 overflow-y-auto"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </aside>
+</main>
+
+<!-- Save Pattern Modal -->
+<div id="savePatternModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+  <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+    <h3 class="text-xl font-bold mb-4">Save Pattern</h3>
+    <div class="mb-4">
+      <label class="block text-sm font-medium mb-2">Pattern Name</label>
+      <input type="text" id="patternName" class="w-full px-3 py-2 border border-gray-300 rounded" placeholder="My Beautiful Pattern">
+    </div>
+    <div class="mb-4">
+      <label class="block text-sm font-medium mb-2">Description (optional)</label>
+      <textarea id="patternDescription" class="w-full px-3 py-2 border border-gray-300 rounded" rows="3" placeholder="Description..."></textarea>
+    </div>
+    <div class="flex gap-2 justify-end">
+      <button id="cancelSaveBtn" class="px-4 py-2 bg-gray-200 text-black rounded hover:bg-gray-300">Cancel</button>
+      <button id="confirmSaveBtn" class="px-4 py-2 bg-black text-white rounded hover:bg-gray-800">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- My Patterns Modal -->
+<div id="myPatternsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+  <div class="bg-white rounded-lg p-8 max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+    <h3 class="text-xl font-bold mb-4">My Patterns</h3>
+    <div id="patternsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <!-- Patterns will be loaded here -->
+    </div>
+    <div class="flex justify-end mt-4">
+      <button id="closePatternsBtn" class="px-4 py-2 bg-gray-200 text-black rounded hover:bg-gray-300">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Pattern Instructions Modal -->
+<div id="patternInstructionsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+  <div class="bg-white rounded-lg p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+    <h3 class="text-xl font-bold mb-4">Pattern Instructions</h3>
+    <p class="text-sm text-gray-600 mb-4">Enter your crochet pattern instructions. The parser will automatically calculate stitch counts for each row.</p>
+    
+    <div class="mb-4">
+      <label class="block text-sm font-semibold mb-2">Pattern Text:</label>
+      <textarea id="patternInstructionsInput" rows="10" class="w-full p-3 border border-gray-300 rounded font-mono text-sm" placeholder="Example:
+Row 1: ch 30 (30)
+Row 2: sc in 2nd ch from hook, sc across (29)
+Row 3: ch 1, turn, 2 sc in first st, sc 27, 2 sc in last st (31)
+
+Tips:
+- Use 'ch' for chain, 'sc' for single crochet, 'dc' for double crochet
+- Use '2 sc' or 'inc' for increases
+- Use 'sc2tog' or 'dec' for decreases
+- Put total stitch count in parentheses at end of each row"></textarea>
+    </div>
+    
+    <div id="parsedResultsDiv" class="hidden mb-4 p-4 bg-gray-50 border border-gray-200 rounded">
+      <h4 class="font-semibold mb-2">Parsed Results:</h4>
+      <div id="parsedResults" class="text-sm max-h-48 overflow-y-auto"></div>
+    </div>
+    
+    <div class="flex justify-end gap-2">
+      <button id="closePatternInstructionsBtn" class="px-4 py-2 bg-gray-200 text-black rounded hover:bg-gray-300">Cancel</button>
+      <button id="parsePatternBtn" class="px-4 py-2 bg-black text-white rounded hover:bg-gray-800">Parse Pattern</button>
+      <button id="applyParsedPatternBtn" class="hidden px-4 py-2 bg-black text-white rounded hover:bg-slate-800">Apply to Counter</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add CDN libraries for export functionality -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script>
+  // Authentication variables
+  const isAuthenticated = {{ user.is_authenticated|lower }};
+  const isGuest = {% if request.session.guest %}true{% else %}false{% endif %};
+  
+  // Get CSRF token
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+  const csrftoken = getCookie('csrftoken');
+</script>
+
+<script>
+  const gridSizeRange = document.getElementById('gridSizeRange');
+  const gridSizeLabel = document.getElementById('gridSizeLabel');
+  const patternGrid = document.getElementById('patternGrid');
+  const colorsGrid = document.getElementById('colorsGrid');
+  const pencilBtn = document.getElementById('pencilBtn');
+  const eraserBtn = document.getElementById('eraserBtn');
+  const fillBtn = document.getElementById('fillBtn');
+  const uploadPatternBtn = document.getElementById('uploadPatternBtn');
+  const uploadInput = document.getElementById('uploadInput');
+  const clearCanvasBtn = document.getElementById('clearCanvasBtn');
+  const craftTypes = document.querySelectorAll('.craft-card');
+  const customColorPicker = document.getElementById('customColorPicker');
+  const openColorPickerBtn = document.getElementById('openColorPickerBtn');
+  const useCustomColorBtn = document.getElementById('useCustomColorBtn');
+  const selectedColorPreview = document.getElementById('selectedColorPreview');
+  const selectedColorHex = document.getElementById('selectedColorHex');
+  const totalStitches = document.getElementById('totalStitches');
+  const rectangularModeBtn = document.getElementById('rectangularModeBtn');
+  const circularModeBtn = document.getElementById('circularModeBtn');
+  const gridContainer = document.getElementById('gridContainer');
+  const circularGridContainer = document.getElementById('circularGridContainer');
+  const gridSizeType = document.getElementById('gridSizeType');
+
+  let currentTool = 'pencil';
+  let currentColor = '#000000';
+  let gridSize = 30;
+  let currentCraft = 'cross-stitch';
+  let patternMode = 'rectangular'; // 'rectangular' or 'circular'
+  let currentRound = 1; // For circular patterns
+
+  const colors = [
+    '#000000','#FFFFFF','#FF0000','#00FF00','#0000FF','#FFFF00','#FF00FF',
+    '#00FFFF','#800000','#008000','#000080','#808000','#800080','#008080',
+    '#C0C0C0','#FFA500','#A52A2A','#8A2BE2','#DEB887','#5F9EA0',
+    '#7FFF00','#D2691E','#FF7F50','#6495ED','#DC143C','#00FFFF',
+    '#00008B','#008B8B','#B8860B','#A9A9A9',
+  ];
+
+  let rowNumberTimeout = null; // Store timeout reference to clear if needed
+
+  function createGrid(size) {
+    // Clear any pending row number generation from previous calls
+    if (rowNumberTimeout) {
+      clearTimeout(rowNumberTimeout);
+      rowNumberTimeout = null;
+    }
+
+    patternGrid.innerHTML = '';
+    const rowNumbersContainer = document.getElementById('rowNumbersContainer');
+    const colNumbersContainer = document.getElementById('colNumbersContainer');
+    rowNumbersContainer.innerHTML = '';
+    colNumbersContainer.innerHTML = '';
+    
+    // Calculate cell size to fit within fixed 850x850px container
+    const maxSize = 800; // Container is 850px minus padding
+    const cellSize = Math.floor(maxSize / size); // No need to account for headers now
+    
+    for (let r = 0; r < size; r++) {
+      const row = document.createElement('tr');
+      
+      for (let c = 0; c < size; c++) {
+        const cell = document.createElement('td');
+        cell.tabIndex = 0;
+        cell.dataset.row = r;
+        cell.dataset.col = c;
+        cell.style.backgroundColor = '#fff';
+        cell.style.width = cellSize + 'px';
+        cell.style.height = cellSize + 'px';
+        cell.style.border = '1px solid #A9A9A9';
+        applyCraftCellStyle(cell);
+        row.appendChild(cell);
+      }
+      patternGrid.appendChild(row);
+    }
+    
+    // Add row numbers AFTER grid is built so we can measure actual row heights
+    rowNumberTimeout = setTimeout(() => {
+      const rows = patternGrid.querySelectorAll('tr');
+      // Limit to only the first 'size' rows to prevent indexing issues
+      rows.forEach((row, r) => {
+        if (r >= size) return; // Skip any extra rows that shouldn't exist
+        
+        const rowLabel = document.createElement('div');
+        rowLabel.className = 'grid-guide';
+        rowLabel.textContent = size - r;
+        const fontSize = Math.max(8, Math.min(10, cellSize * 0.6));
+        rowLabel.style.fontSize = fontSize + 'px';
+        rowLabel.style.fontWeight = 'bold';
+        rowLabel.style.color = isDarkMode ? '#ffffff' : '#000000';
+        rowLabel.style.padding = '0';
+        rowLabel.style.margin = '0';
+        // Use the actual rendered height of the table row
+        const actualHeight = row.offsetHeight;
+        rowLabel.style.height = actualHeight + 'px';
+        rowLabel.style.display = 'flex';
+        rowLabel.style.alignItems = 'center';
+        rowLabel.style.justifyContent = 'center';
+        rowLabel.style.boxSizing = 'border-box';
+        rowNumbersContainer.appendChild(rowLabel);
+      });
+      rowNumberTimeout = null; // Clear reference after execution
+    }, 0);
+    
+    // Create column numbers in external container at the bottom
+    for (let c = 0; c < size; c++) {
+      const colLabel = document.createElement('div');
+      colLabel.className = 'grid-guide';
+      colLabel.textContent = c + 1;
+      const fontSize = Math.max(8, Math.min(10, cellSize * 0.6)); // Scale font size with cell size
+      colLabel.style.fontSize = fontSize + 'px';
+      colLabel.style.fontWeight = 'bold';
+      colLabel.style.color = isDarkMode ? '#ffffff' : '#000000';
+      colLabel.style.padding = '2px';
+      colLabel.style.width = cellSize + 'px';
+      colLabel.style.textAlign = 'center';
+      colNumbersContainer.appendChild(colLabel);
+    }
+  }
+
+  // Circular Grid Creation
+  function createCircularGrid(rounds) {
+    const canvas = document.getElementById('circularCanvas');
+    const ctx = canvas.getContext('2d');
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const maxRadius = Math.min(centerX, centerY) - 20;
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Store circular pattern data
+    if (!window.circularPatternData) {
+      window.circularPatternData = [];
+    }
+    
+    // Calculate stitches per round (common amigurumi pattern: 6, 12, 18, 24, 30...)
+    const stitchesPerRound = [];
+    for (let r = 1; r <= rounds; r++) {
+      stitchesPerRound.push(6 * r);
+    }
+    
+    // Draw each round
+    for (let round = 0; round < rounds; round++) {
+      const stitches = stitchesPerRound[round];
+      const radius = (maxRadius / rounds) * (round + 1);
+      const prevRadius = round > 0 ? (maxRadius / rounds) * round : 0;
+      
+      // Draw each stitch in the round
+      for (let stitch = 0; stitch < stitches; stitch++) {
+        const angleStart = (stitch / stitches) * 2 * Math.PI - Math.PI / 2;
+        const angleEnd = ((stitch + 1) / stitches) * 2 * Math.PI - Math.PI / 2;
+        
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, angleStart, angleEnd);
+        ctx.arc(centerX, centerY, prevRadius, angleEnd, angleStart, true);
+        ctx.closePath();
+        
+        // Get color for this cell
+        const cellData = window.circularPatternData.find(
+          d => d.round === round + 1 && d.stitch === stitch + 1
+        );
+        ctx.fillStyle = cellData ? cellData.color : '#ffffff';
+        ctx.fill();
+        ctx.strokeStyle = '#A9A9A9';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    }
+    
+    // Add round labels
+    ctx.fillStyle = '#000000';
+    ctx.font = '10px Arial';
+    ctx.textAlign = 'center';
+    for (let round = 0; round < rounds; round++) {
+      const radius = (maxRadius / rounds) * (round + 1);
+      ctx.fillText(`R${round + 1}`, centerX + radius + 15, centerY);
+    }
+    
+    // Make canvas clickable
+    canvas.onclick = function(e) {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      const dx = x - centerX;
+      const dy = y - centerY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      const angle = Math.atan2(dy, dx) + Math.PI / 2;
+      const normalizedAngle = angle < 0 ? angle + 2 * Math.PI : angle;
+      
+      // Find which round and stitch was clicked
+      for (let round = 0; round < rounds; round++) {
+        const radius = (maxRadius / rounds) * (round + 1);
+        const prevRadius = round > 0 ? (maxRadius / rounds) * round : 0;
+        
+        if (distance >= prevRadius && distance <= radius) {
+          const stitches = stitchesPerRound[round];
+          const stitchIndex = Math.floor((normalizedAngle / (2 * Math.PI)) * stitches);
+          
+          if (currentTool === 'fill') {
+            // Fill entire round with current color
+            for (let s = 0; s < stitches; s++) {
+              const existingIndex = window.circularPatternData.findIndex(
+                d => d.round === round + 1 && d.stitch === s + 1
+              );
+              const cellData = { round: round + 1, stitch: s + 1, color: currentColor };
+              if (existingIndex >= 0) {
+                window.circularPatternData[existingIndex] = cellData;
+              } else {
+                window.circularPatternData.push(cellData);
+              }
+            }
+          } else {
+            // Pencil or eraser - single cell
+            const existingIndex = window.circularPatternData.findIndex(
+              d => d.round === round + 1 && d.stitch === stitchIndex + 1
+            );
+            
+            if (currentTool === 'pencil') {
+              const cellData = { round: round + 1, stitch: stitchIndex + 1, color: currentColor };
+              if (existingIndex >= 0) {
+                window.circularPatternData[existingIndex] = cellData;
+              } else {
+                window.circularPatternData.push(cellData);
+              }
+            } else if (currentTool === 'eraser' && existingIndex >= 0) {
+              window.circularPatternData.splice(existingIndex, 1);
+            }
+          }
+          
+          createCircularGrid(rounds);
+          updateStitchCount();
+          break;
+        }
+      }
+    };
+  }
+
+  function applyCraftCellStyle(cell) {
+    // Apply different cell visuals depending on currentCraft
+    // Preserve the background color when changing craft types
+    cell.style.position = 'relative';
+    cell.style.borderColor = '#A9A9A9';
+    cell.style.borderWidth = '1px';
+    cell.style.borderStyle = 'solid';
+
+    if (currentCraft === 'cross-stitch') {
+      // Show X pattern using diagonal lines with cell color
+      cell.style.borderRadius = '0';
+      
+      // Store original color in data attribute if not already stored
+      let cellColor = cell.dataset.cellColor || cell.style.backgroundColor;
+      if (cellColor && cellColor !== 'rgb(255, 255, 255)' && cellColor !== 'white' && cellColor !== '') {
+        cell.dataset.cellColor = cellColor;
+        cell.style.backgroundImage = `
+          linear-gradient(45deg, transparent 35%, ${cellColor} 35%, ${cellColor} 65%, transparent 65%),
+          linear-gradient(-45deg, transparent 35%, ${cellColor} 35%, ${cellColor} 65%, transparent 65%)
+        `;
+        cell.style.backgroundColor = 'white';
+      } else {
+        cell.style.backgroundImage = 'none';
+        cell.style.backgroundColor = cellColor || 'white';
+      }
+      cell.style.backgroundSize = '80% 80%';
+      cell.style.backgroundRepeat = 'no-repeat';
+      cell.style.backgroundPosition = 'center';
+    } else if (currentCraft === 'knitting') {
+      // Show V-shaped stitch lines
+      cell.style.borderRadius = '0';
+      
+      // Restore color from data attribute
+      let cellColor = cell.dataset.cellColor || cell.style.backgroundColor;
+      if (cellColor && cellColor !== 'rgb(255, 255, 255)' && cellColor !== 'white' && cellColor !== '') {
+        cell.dataset.cellColor = cellColor;
+        cell.style.backgroundColor = cellColor;
+      } else {
+        cell.style.backgroundColor = 'white';
+      }
+      
+      cell.style.backgroundImage = `linear-gradient(to bottom right, #eee 50%, transparent 50%), linear-gradient(to top right, #eee 50%, transparent 50%)`;
+      cell.style.backgroundSize = '20px 20px';
+      cell.style.backgroundRepeat = 'no-repeat';
+      cell.style.backgroundPosition = 'center';
+    } else if (currentCraft === 'crochet') {
+      // Crochet cells are circular with inner circle outline
+      cell.style.borderRadius = '50%';
+      cell.style.borderColor = '#A9A9A9';
+      cell.style.borderWidth = '1px';
+      cell.style.backgroundSize = '100% 100%';
+      cell.style.backgroundRepeat = 'no-repeat';
+      cell.style.backgroundPosition = 'center';
+      
+      // Restore color from data attribute
+      let cellColor = cell.dataset.cellColor || cell.style.backgroundColor;
+      if (cellColor && cellColor !== 'rgb(255, 255, 255)' && cellColor !== 'white' && cellColor !== '') {
+        cell.dataset.cellColor = cellColor;
+        cell.style.backgroundColor = cellColor;
+        cell.style.backgroundImage = `radial-gradient(circle, ${cellColor} 60%, #000 60%, #000 62%, transparent 62%)`;
+      } else {
+        cell.style.backgroundColor = 'white';
+        cell.style.backgroundImage = 'none';
+      }
+    } else if (currentCraft === 'pixel-art') {
+      // Solid square blocks, no special background
+      cell.style.borderRadius = '0';
+      cell.style.backgroundImage = 'none';
+      cell.style.borderColor = '#A9A9A9';
+      
+      // Restore color from data attribute
+      let cellColor = cell.dataset.cellColor || cell.style.backgroundColor;
+      if (cellColor && cellColor !== 'rgb(255, 255, 255)' && cellColor !== 'white' && cellColor !== '') {
+        cell.dataset.cellColor = cellColor;
+        cell.style.backgroundColor = cellColor;
+      } else {
+        cell.style.backgroundColor = 'white';
+      }
+    }
+  }
+
+  function createColorSwatches() {
+    colorsGrid.innerHTML = '';
+    colors.forEach(color => {
+      const swatch = document.createElement('div');
+      swatch.className = 'w-7 h-7 cursor-pointer border-2 border-gray-800 rounded';
+      swatch.style.backgroundColor = color;
+      swatch.tabIndex = 0;
+      swatch.setAttribute('aria-label', `Select color ${color}`);
+      swatch.addEventListener('click', () => {
+        currentColor = color;
+        highlightSelectedColor();
+      });
+      colorsGrid.appendChild(swatch);
+    });
+  }
+
+  function highlightSelectedColor() {
+    Array.from(colorsGrid.children).forEach(swatch => {
+      if (swatch.style.backgroundColor.toLowerCase() === currentColor.toLowerCase()) {
+        swatch.className = 'w-7 h-7 cursor-pointer border-[3px] border-black rounded';
+      } else {
+        swatch.className = 'w-7 h-7 cursor-pointer border-2 border-gray-800 rounded';
+      }
+    });
+    // Update selected color preview and hex
+    selectedColorPreview.style.backgroundColor = currentColor;
+    selectedColorHex.textContent = currentColor.toUpperCase();
+  }
+
+  function rgbToHex(rgb) {
+    if (rgb.startsWith('#')) return rgb.toUpperCase();
+    const match = rgb.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+    if (!match) return rgb;
+    const r = parseInt(match[1]).toString(16).padStart(2, '0');
+    const g = parseInt(match[2]).toString(16).padStart(2, '0');
+    const b = parseInt(match[3]).toString(16).padStart(2, '0');
+    return `#${r}${g}${b}`.toUpperCase();
+  }
+
+  function updateStitchCount() {
+    let count = 0;
+    const colorCounts = {};
+    const cells = patternGrid.querySelectorAll('td');
+    
+    cells.forEach(cell => {
+      // Check data-cellColor first (for cross-stitch), then backgroundColor
+      const cellColor = cell.dataset.cellColor || cell.style.backgroundColor;
+      if (cellColor && cellColor !== 'rgb(255, 255, 255)' && cellColor !== 'white' && cellColor !== '') {
+        count++;
+        const hexColor = rgbToHex(cellColor);
+        colorCounts[hexColor] = (colorCounts[hexColor] || 0) + 1;
+      }
+    });
+    
+    totalStitches.textContent = count;
+    
+    const colorCountList = document.getElementById('colorCountList');
+    const colorsUsedText = document.getElementById('colorsUsedText');
+    
+    if (count === 0) {
+      colorCountList.innerHTML = '<p class="p-5 text-center text-gray-400 m-0 text-xs">Start creating to see color breakdown</p>';
+      colorsUsedText.textContent = '0 colors used';
+    } else {
+      const sortedColors = Object.entries(colorCounts).sort((a, b) => b[1] - a[1]);
+      colorCountList.innerHTML = sortedColors.map(([color, count]) => `
+        <div class="flex justify-between items-center py-2.5 px-4 border-b border-gray-200">
+          <div class="flex items-center gap-2.5">
+            <div class="w-7 h-7 border-2 border-gray-800 rounded" style="background: ${color};"></div>
+            <span class="text-xs font-mono">${color}</span>
+          </div>
+          <span class="font-semibold text-sm">${count}</span>
+        </div>
+      `).join('');
+      colorsUsedText.textContent = `${sortedColors.length} color${sortedColors.length === 1 ? '' : 's'} used`;
+    }
+  }
+
+  function selectTool(tool) {
+    currentTool = tool;
+    const allTools = [pencilBtn, eraserBtn, fillBtn];
+    allTools.forEach(btn => {
+      if (isDarkMode) {
+        btn.style.background = '#000';
+        btn.style.color = '#fff';
+        btn.style.border = '1px solid #fff';
+      } else {
+        btn.style.background = '#fff';
+        btn.style.color = '#000';
+        btn.style.border = '1px solid #333';
+      }
+    });
+    const selectedBtn = tool === 'pencil' ? pencilBtn : tool === 'eraser' ? eraserBtn : fillBtn;
+    if (isDarkMode) {
+      selectedBtn.style.background = '#fff';
+      selectedBtn.style.color = '#000';
+      selectedBtn.style.border = '1px solid #fff';
+    } else {
+      selectedBtn.style.background = '#000';
+      selectedBtn.style.color = '#fff';
+      selectedBtn.style.border = 'none';
+    }
+  }
+
+  function selectCraft(craftDiv) {
+    craftTypes.forEach(div => {
+      div.classList.remove('!bg-black', '!text-white', '!border-black');
+      div.classList.add('bg-white', 'border-gray-200');
+      div.setAttribute('aria-selected', 'false');
+      
+      // Update dark mode styling for unselected cards
+      if (isDarkMode) {
+        div.style.setProperty('background-color', '#000000', 'important');
+        div.style.setProperty('color', '#ffffff', 'important');
+        div.style.setProperty('border-color', '#ffffff', 'important');
+        // Update description text color
+        const small = div.querySelector('small');
+        if (small) small.style.setProperty('color', '#ffffff', 'important');
+      } else {
+        div.style.backgroundColor = '';
+        div.style.color = '';
+        div.style.borderColor = '';
+        const small = div.querySelector('small');
+        if (small) small.style.color = '';
+      }
+    });
+    craftDiv.classList.remove('bg-white', 'border-gray-200');
+    craftDiv.classList.add('!bg-black', '!text-white', '!border-black');
+    craftDiv.setAttribute('aria-selected', 'true');
+    
+    // Update dark mode styling for selected card
+    if (isDarkMode) {
+      craftDiv.style.setProperty('background-color', '#ffffff', 'important');
+      craftDiv.style.setProperty('color', '#000000', 'important');
+      craftDiv.style.setProperty('border-color', '#ffffff', 'important');
+      // Update description text color
+      const small = craftDiv.querySelector('small');
+      if (small) small.style.setProperty('color', '#000000', 'important');
+    } else {
+      craftDiv.style.backgroundColor = '';
+      craftDiv.style.color = '';
+      craftDiv.style.borderColor = '';
+      const small = craftDiv.querySelector('small');
+      if (small) small.style.color = '';
+    }
+    
+    currentCraft = craftDiv.dataset.craft;
+    // Apply craft style to existing cells without clearing them
+    const cells = patternGrid.querySelectorAll('td');
+    cells.forEach(cell => {
+      applyCraftCellStyle(cell);
+    });
+  }
+
+  craftTypes.forEach(div => {
+    div.addEventListener('click', () => selectCraft(div));
+    div.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        selectCraft(div);
+      }
+    });
+  });
+
+  // Drawing with mouse drag functionality
+  let isDrawing = false;
+  let lastDrawnCell = null;
+  let gestureChanged = false;
+  let undoStack = [];
+  let redoStack = [];
+
+  function getGridState() {
+    const cells = patternGrid.querySelectorAll('td[data-row][data-col]');
+    return Array.from(cells).map(cell => ({
+      row: parseInt(cell.dataset.row),
+      col: parseInt(cell.dataset.col),
+      color: cell.dataset.cellColor || ''
+    }));
+  }
+
+  function setGridState(state) {
+    const cells = patternGrid.querySelectorAll('td[data-row][data-col]');
+    state.forEach(cellData => {
+      const cell = patternGrid.rows[cellData.row]?.cells[cellData.col];
+      if (cell) {
+        if (cellData.color) {
+          cell.dataset.cellColor = cellData.color;
+          cell.style.backgroundColor = cellData.color;
+        } else {
+          delete cell.dataset.cellColor;
+          cell.style.backgroundColor = '#fff';
+        }
+        applyCraftCellStyle(cell);
+      }
+    });
+    updateStitchCount();
+  }
+
+  function pushUndoState() {
+    undoStack.push(getGridState());
+    if (undoStack.length > 100) undoStack.shift(); // Limit stack size
+    redoStack = [];
+  }
+
+  document.getElementById('undoBtn').addEventListener('click', () => {
+    if (undoStack.length > 0) {
+      redoStack.push(getGridState());
+      setGridState(undoStack.pop());
+    }
+  });
+  document.getElementById('redoBtn').addEventListener('click', () => {
+    if (redoStack.length > 0) {
+      undoStack.push(getGridState());
+      setGridState(redoStack.pop());
+    }
+  });
+
+  patternGrid.addEventListener('mousedown', e => {
+    if (e.target.tagName === 'TD') {
+      isDrawing = true;
+      lastDrawnCell = e.target;
+      gestureChanged = false;
+      pushUndoState(); // Save state before gesture
+      // If tracking is active, allow clicking to jump to that cell
+      if (isTracking && trackingContent && !trackingContent.classList.contains('hidden')) {
+        const clickedRow = parseInt(e.target.dataset.row);
+        const clickedCol = parseInt(e.target.dataset.col);
+        currentRow = clickedRow;
+        currentCol = clickedCol;
+        updateTrackingDisplay();
+      } else {
+        // Normal drawing tools when tracking is off
+        if (currentTool === 'pencil') {
+          e.target.dataset.cellColor = currentColor;
+          e.target.style.backgroundColor = currentColor;
+          applyCraftCellStyle(e.target);
+          updateStitchCount();
+          gestureChanged = true;
+        } else if (currentTool === 'eraser') {
+          delete e.target.dataset.cellColor;
+          e.target.style.backgroundColor = '#fff';
+          applyCraftCellStyle(e.target);
+          updateStitchCount();
+          gestureChanged = true;
+        } else if (currentTool === 'fill') {
+          const targetColor = e.target.style.backgroundColor;
+          if (targetColor !== currentColor) {
+            fillArea(e.target, targetColor, currentColor);
+            updateStitchCount();
+            gestureChanged = true;
+          }
+        }
+      }
+    }
+  });
+
+  patternGrid.addEventListener('mousemove', e => {
+    if (isDrawing && e.target.tagName === 'TD') {
+      const currentCell = e.target;
+      // Only draw if this is a new cell and we're not in tracking mode
+      if (currentCell !== lastDrawnCell && (!isTracking || trackingContent.classList.contains('hidden'))) {
+        // If we have a last cell, draw a line between them
+        if (lastDrawnCell && currentTool !== 'fill') {
+          const lastRow = parseInt(lastDrawnCell.dataset.row);
+          const lastCol = parseInt(lastDrawnCell.dataset.col);
+          const currentRow = parseInt(currentCell.dataset.row);
+          const currentCol = parseInt(currentCell.dataset.col);
+          // Draw line between last and current cell
+          const cells = getLineCells(lastRow, lastCol, currentRow, currentCol);
+          cells.forEach(cell => {
+            if (currentTool === 'pencil') {
+              cell.dataset.cellColor = currentColor;
+              cell.style.backgroundColor = currentColor;
+              applyCraftCellStyle(cell);
+              gestureChanged = true;
+            } else if (currentTool === 'eraser') {
+              delete cell.dataset.cellColor;
+              cell.style.backgroundColor = '#fff';
+              applyCraftCellStyle(cell);
+              gestureChanged = true;
+            }
+          });
+        }
+        lastDrawnCell = currentCell;
+      }
+    }
+  });
+
+  // DDA algorithm for smooth line drawing with deduplication
+  function getLineCells(row0, col0, row1, col1) {
+    const cells = [];
+    const visited = new Set();
+    const dx = col1 - col0;
+    const dy = row1 - row0;
+    const steps = Math.max(Math.abs(dx), Math.abs(dy));
+    
+    if (steps === 0) {
+      if (patternGrid.rows[row0] && patternGrid.rows[row0].cells[col0]) {
+        cells.push(patternGrid.rows[row0].cells[col0]);
+      }
+      return cells;
+    }
+    
+    const xIncrement = dx / steps;
+    const yIncrement = dy / steps;
+    
+    let x = col0;
+    let y = row0;
+    
+    for (let i = 0; i <= steps; i++) {
+      const row = Math.round(y);
+      const col = Math.round(x);
+      const key = `${row},${col}`;
+      
+      // Only add if we haven't visited this cell yet
+      if (!visited.has(key) && patternGrid.rows[row] && patternGrid.rows[row].cells[col]) {
+        visited.add(key);
+        cells.push(patternGrid.rows[row].cells[col]);
+      }
+      
+      x += xIncrement;
+      y += yIncrement;
+    }
+    
+    return cells;
+  }
+
+  patternGrid.addEventListener('mouseup', () => {
+    if (isDrawing) {
+      isDrawing = false;
+      lastDrawnCell = null;
+      updateStitchCount(); // Update count once when done drawing
+      // Only keep undo state if something changed
+      if (!gestureChanged && undoStack.length > 0) {
+        // Remove the last pushed state if nothing changed
+        undoStack.pop();
+      }
+    }
+  });
+
+  patternGrid.addEventListener('mouseleave', () => {
+    if (isDrawing) {
+      isDrawing = false;
+      lastDrawnCell = null;
+      updateStitchCount(); // Update count when leaving grid
+    }
+  });
+
+  function fillArea(startCell, targetColor, fillColor) {
+    const stack = [startCell];
+    while (stack.length) {
+      const cell = stack.pop();
+      if (cell.style.backgroundColor === targetColor) {
+        cell.dataset.cellColor = fillColor;
+        cell.style.backgroundColor = fillColor;
+        applyCraftCellStyle(cell);
+        const row = parseInt(cell.dataset.row);
+        const col = parseInt(cell.dataset.col);
+        const neighbors = [
+          [row - 1, col],
+          [row + 1, col],
+          [row, col - 1],
+          [row, col + 1]
+        ];
+        neighbors.forEach(([r, c]) => {
+          if (r >= 0 && r < gridSize && c >= 0 && c < gridSize) {
+            const neighborCell = patternGrid.rows[r].cells[c]; // No offset needed
+            if (neighborCell && neighborCell.style.backgroundColor === targetColor) {
+              stack.push(neighborCell);
+            }
+          }
+        });
+      }
+    }
+  }
+
+  pencilBtn.addEventListener('click', () => selectTool('pencil'));
+  eraserBtn.addEventListener('click', () => selectTool('eraser'));
+  fillBtn.addEventListener('click', () => selectTool('fill'));
+
+  // Helper function to switch to rectangular mode
+  function switchToRectangularMode(preserveData = true) {
+    patternMode = 'rectangular';
+    rectangularModeBtn.classList.add('bg-black', 'text-white');
+    rectangularModeBtn.classList.remove('bg-white', 'text-black');
+    circularModeBtn.classList.remove('bg-black', 'text-white');
+    circularModeBtn.classList.add('bg-white', 'text-black');
+    gridContainer.classList.remove('hidden');
+    circularGridContainer.classList.add('hidden');
+    
+    if (isDarkMode) {
+      rectangularModeBtn.style.backgroundColor = '#ffffff';
+      rectangularModeBtn.style.color = '#000000';
+      rectangularModeBtn.style.borderColor = '#ffffff';
+      circularModeBtn.style.backgroundColor = '#000000';
+      circularModeBtn.style.color = '#ffffff';
+      circularModeBtn.style.borderColor = '#ffffff';
+    } else {
+      rectangularModeBtn.style.backgroundColor = '';
+      rectangularModeBtn.style.color = '';
+      rectangularModeBtn.style.borderColor = '';
+      circularModeBtn.style.backgroundColor = '';
+      circularModeBtn.style.color = '';
+      circularModeBtn.style.borderColor = '';
+    }
+    
+    gridSizeType.textContent = 'Grid Size';
+    gridSizeLabel.textContent = `${gridSize}x${gridSize}`;
+    
+    if (preserveData) {
+      const savedRectangularData = [];
+      const existingCells = patternGrid.querySelectorAll('td[data-row][data-col]');
+      existingCells.forEach(cell => {
+        const color = cell.dataset.cellColor || cell.style.backgroundColor;
+        if (color && color !== 'rgb(255, 255, 255)' && color !== 'white' && color !== '') {
+          savedRectangularData.push({
+            row: parseInt(cell.dataset.row),
+            col: parseInt(cell.dataset.col),
+            color: rgbToHex(color)
+          });
+        }
+      });
+      
+      setTimeout(() => {
+        createGrid(gridSize);
+        setTimeout(() => {
+          savedRectangularData.forEach(cell => {
+            const td = patternGrid.querySelector(`td[data-row="${cell.row}"][data-col="${cell.col}"]`);
+            if (td) {
+              td.dataset.cellColor = cell.color;
+              td.style.backgroundColor = cell.color;
+              applyCraftCellStyle(td);
+            }
+          });
+          updateStitchCount();
+        }, 50);
+      }, 50);
+    } else {
+      setTimeout(() => {
+        createGrid(gridSize);
+        updateStitchCount();
+      }, 50);
+    }
+  }
+
+  function switchToCircularMode() {
+    patternMode = 'circular';
+    circularModeBtn.classList.add('bg-black', 'text-white');
+    circularModeBtn.classList.remove('bg-white', 'text-black');
+    rectangularModeBtn.classList.remove('bg-black', 'text-white');
+    rectangularModeBtn.classList.add('bg-white', 'text-black');
+    gridContainer.classList.add('hidden');
+    circularGridContainer.classList.remove('hidden');
+    
+    if (isDarkMode) {
+      circularModeBtn.style.backgroundColor = '#ffffff';
+      circularModeBtn.style.color = '#000000';
+      circularModeBtn.style.borderColor = '#ffffff';
+      rectangularModeBtn.style.backgroundColor = '#000000';
+      rectangularModeBtn.style.color = '#ffffff';
+      rectangularModeBtn.style.borderColor = '#ffffff';
+    } else {
+      circularModeBtn.style.backgroundColor = '';
+      circularModeBtn.style.color = '';
+      circularModeBtn.style.borderColor = '';
+      rectangularModeBtn.style.backgroundColor = '';
+      rectangularModeBtn.style.color = '';
+      rectangularModeBtn.style.borderColor = '';
+    }
+    
+    gridSizeType.textContent = 'Rounds';
+    gridSizeLabel.textContent = `${gridSize} rounds`;
+    
+    createCircularGrid(gridSize);
+    updateStitchCount();
+  }
+
+  // Pattern mode toggle
+  rectangularModeBtn.addEventListener('click', () => {
+    switchToRectangularMode(true);
+  });
+
+  circularModeBtn.addEventListener('click', () => {
+    switchToCircularMode();
+  });
+
+  gridSizeRange.addEventListener('input', () => {
+    gridSize = parseInt(gridSizeRange.value);
+    
+    if (patternMode === 'rectangular') {
+      gridSizeLabel.textContent = `${gridSize}x${gridSize}`;
+      createGrid(gridSize);
+    } else {
+      // In circular mode, gridSize directly represents rounds
+      gridSizeLabel.textContent = `${gridSize} rounds`;
+      createCircularGrid(gridSize);
+    }
+    updateStitchCount();
+  });
+
+  clearCanvasBtn.addEventListener('click', () => {
+    if (patternMode === 'rectangular') {
+      createGrid(gridSize);
+    } else {
+      window.circularPatternData = [];
+      createCircularGrid(gridSize); // gridSize directly represents rounds
+    }
+    updateStitchCount();
+  });
+
+  openColorPickerBtn.addEventListener('click', () => {
+    customColorPicker.click();
+  });
+
+  customColorPicker.addEventListener('input', () => {
+    openColorPickerBtn.style.backgroundColor = customColorPicker.value;
+  });
+
+  useCustomColorBtn.addEventListener('click', () => {
+    currentColor = customColorPicker.value;
+    highlightSelectedColor();
+  });
+
+  uploadPatternBtn.addEventListener('click', () => {
+    uploadInput.click();
+  });
+
+  uploadInput.addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const img = new Image();
+        img.onload = function() {
+          drawImageToGrid(img);
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+  });
+
+  function drawImageToGrid(img) {
+    const canvas = document.createElement('canvas');
+    canvas.width = gridSize;
+    canvas.height = gridSize;
+    const ctx = canvas.getContext('2d');
+    // Draw image scaled to grid size
+    ctx.drawImage(img, 0, 0, gridSize, gridSize);
+    // For each cell, get pixel color and set cell background
+    for (let r = 0; r < gridSize; r++) {
+      for (let c = 0; c < gridSize; c++) {
+        const pixelData = ctx.getImageData(c, r, 1, 1).data;
+        const rgba = `rgba(${pixelData[0]},${pixelData[1]},${pixelData[2]},${pixelData[3]/255})`;
+        const cell = patternGrid.rows[r].cells[c];
+        cell.dataset.cellColor = rgba;
+        cell.style.backgroundColor = rgba;
+        applyCraftCellStyle(cell);
+      }
+    }
+    updateStitchCount();
+  }
+
+  // Progress Tracker functionality
+  let isTracking = false;
+  let currentRow = 0;
+  let currentCol = 0;
+  let totalStitchesCount = 0;
+  let currentPatternId = null; // Track currently loaded pattern ID
+  let currentPatternName = ''; // Track current pattern name
+
+  const startTrackingBtn = document.getElementById('startTrackingBtn');
+  const trackingContent = document.getElementById('trackingContent');
+  const trackingStatusBtn = document.getElementById('trackingStatusBtn');
+  const currentPosition = document.getElementById('currentPosition');
+  const stitchProgress = document.getElementById('stitchProgress');
+  const progressBar = document.getElementById('progressBar');
+  const nextStitchBtn = document.getElementById('nextStitchBtn');
+  const resetTrackingBtn = document.getElementById('resetTrackingBtn');
+  const navUpBtn = document.getElementById('navUpBtn');
+  const navDownBtn = document.getElementById('navDownBtn');
+  const navLeftBtn = document.getElementById('navLeftBtn');
+  const navRightBtn = document.getElementById('navRightBtn');
+  const navMoveBtn = document.getElementById('navMoveBtn');
+
+  startTrackingBtn.addEventListener('click', () => {
+    isTracking = true;
+    startTrackingBtn.classList.add('hidden');
+    trackingContent.classList.remove('hidden');
+    currentRow = gridSize - 1;  // Start at bottom row
+    currentCol = 0;
+    totalStitchesCount = gridSize * gridSize;
+    updateTrackingDisplay();
+  });
+
+  trackingStatusBtn.addEventListener('click', () => {
+    isTracking = !isTracking;
+    trackingStatusBtn.textContent = isTracking ? 'Tracking On' : 'Tracking Off';
+    
+    // Update display to remove/show progress bar and highlighting
+    if (!isTracking) {
+      // Remove cell highlighting when tracking off
+      const cells = patternGrid.querySelectorAll('td');
+      cells.forEach(cell => {
+        cell.style.outline = 'none';
+        cell.style.outlineOffset = '0';
+      });
+    } else {
+      // Restore highlighting when tracking on
+      updateTrackingDisplay();
+    }
+  });
+
+  nextStitchBtn.addEventListener('click', () => {
+    if (isTracking) {
+      moveToNextStitch();
+    }
+  });
+
+  resetTrackingBtn.addEventListener('click', () => {
+    currentRow = gridSize - 1;  // Reset to bottom row
+    currentCol = 0;
+    updateTrackingDisplay();
+  });
+
+  navUpBtn.addEventListener('click', () => {
+    if (isTracking && currentRow > 0) {
+      currentRow--;
+      updateTrackingDisplay();
+    }
+  });
+
+  navDownBtn.addEventListener('click', () => {
+    if (isTracking && currentRow < gridSize - 1) {
+      currentRow++;
+      updateTrackingDisplay();
+    }
+  });
+
+  navLeftBtn.addEventListener('click', () => {
+    if (isTracking && currentCol > 0) {
+      currentCol--;
+      updateTrackingDisplay();
+    }
+  });
+
+  navRightBtn.addEventListener('click', () => {
+    if (isTracking && currentCol < gridSize - 1) {
+      currentCol++;
+      updateTrackingDisplay();
+    }
+  });
+
+  function moveToNextStitch() {
+    currentCol++;
+    if (currentCol >= gridSize) {
+      currentCol = 0;
+      currentRow--;
+      if (currentRow < 0) {
+        currentRow = gridSize - 1;
+      }
+    }
+    updateTrackingDisplay();
+  }
+
+  function updateTrackingDisplay() {
+    // Calculate stitch number from bottom to top (bottom-left is 1, top-right is total)
+    const currentStitch = (gridSize - currentRow - 1) * gridSize + currentCol + 1;
+    const displayRow = gridSize - currentRow; // Display row number starting from bottom
+    currentPosition.textContent = `Row ${displayRow}, Column ${currentCol + 1}`;
+    const percentage = Math.round((currentStitch / totalStitchesCount) * 100);
+    stitchProgress.textContent = `Stitch ${currentStitch} of ${totalStitchesCount} (${percentage}%)`;
+    
+    // Only update progress bar if tracking is on
+    if (isTracking) {
+      progressBar.style.width = percentage + '%';
+    }
+    
+    // Highlight current cell in the grid only if tracking is on
+    const cells = patternGrid.querySelectorAll('td');
+    cells.forEach(cell => {
+      cell.style.outline = 'none';
+      cell.style.outlineOffset = '0';
+    });
+    
+    if (isTracking && patternGrid.rows[currentRow] && patternGrid.rows[currentRow].cells[currentCol]) {
+      const currentCell = patternGrid.rows[currentRow].cells[currentCol]; // No offset needed - no row headers in table
+      currentCell.style.outline = '3px solid #3b82f6';
+      currentCell.style.outlineOffset = '-3px';
+      currentCell.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+    }
+  }
+
+  // Stitch Counter functionality
+  let stitchCount = 0;
+  let stitchTarget = 30;
+  let rowHistory = [];
+  let parsedRowData = []; // Store parsed pattern data
+  
+  const stitchCountDisplay = document.getElementById('stitchCount');
+  const stitchTargetDisplay = document.getElementById('stitchTarget');
+  const stitchProgressBar = document.getElementById('stitchProgressBar');
+  const rowTargetInput = document.getElementById('rowTargetInput');
+  const incrementStitchBtn = document.getElementById('incrementStitchBtn');
+  const decrementStitchBtn = document.getElementById('decrementStitchBtn');
+  const resetCounterBtn = document.getElementById('resetCounterBtn');
+  const completeRowBtn = document.getElementById('completeRowBtn');
+  const rowHistoryDisplay = document.getElementById('rowHistory');
+  
+  function updateStitchCounter() {
+    stitchCountDisplay.textContent = stitchCount;
+    stitchTargetDisplay.textContent = stitchTarget;
+    
+    const percentage = stitchTarget > 0 ? Math.min((stitchCount / stitchTarget) * 100, 100) : 0;
+    stitchProgressBar.style.width = percentage + '%';
+    
+    // Change color based on completion
+    if (stitchCount === stitchTarget && stitchTarget > 0) {
+      stitchProgressBar.style.backgroundColor = 'black'; // green
+      stitchCountDisplay.style.color = '#22c55e';
+    } else if (stitchCount > stitchTarget) {
+      stitchProgressBar.style.backgroundColor = '#ef4444'; // red (over count)
+      stitchCountDisplay.style.color = '#ef4444';
+    } else {
+      stitchProgressBar.style.backgroundColor = 'black'; // green
+      stitchCountDisplay.style.color = '#000000';
+    }
+  }
+  
+  function updateRowHistory() {
+    if (rowHistory.length === 0) {
+      rowHistoryDisplay.innerHTML = '<div class="text-center text-gray-400">No completed rows yet</div>';
+    } else {
+      rowHistoryDisplay.innerHTML = rowHistory.map((row, index) => 
+        `<div class="py-1 border-b border-gray-200">Row ${index + 1}: ${row.count}/${row.target} stitches ${row.count === row.target ? '✓' : '⚠'}</div>`
+      ).reverse().join('');
+    }
+  }
+  
+  incrementStitchBtn.addEventListener('click', () => {
+    stitchCount++;
+    updateStitchCounter();
+  });
+  
+  decrementStitchBtn.addEventListener('click', () => {
+    if (stitchCount > 0) {
+      stitchCount--;
+      updateStitchCounter();
+    }
+  });
+  
+  resetCounterBtn.addEventListener('click', () => {
+    stitchCount = 0;
+    updateStitchCounter();
+  });
+  
+  completeRowBtn.addEventListener('click', () => {
+    // Save current row to history
+    const displayRow = gridSize - currentRow;
+    rowHistory.push({
+      row: displayRow,
+      count: stitchCount,
+      target: stitchTarget,
+      timestamp: new Date().toLocaleTimeString()
+    });
+    
+    updateRowHistory();
+    
+    // Reset counter for next row
+    stitchCount = 0;
+    
+    // Auto-load next row's target from parsed pattern if available
+    const nextRowNumber = rowHistory.length + 1;
+    const nextRowData = parsedRowData.find(r => r.row === nextRowNumber);
+    if (nextRowData && nextRowData.stitchCount) {
+      stitchTarget = nextRowData.stitchCount;
+      rowTargetInput.value = stitchTarget;
+    }
+    
+    updateStitchCounter();
+    
+    // Optional: Auto-advance to next row in tracking
+    if (isTracking) {
+      moveToNextStitch();
+    }
+  });
+  
+  rowTargetInput.addEventListener('input', (e) => {
+    stitchTarget = parseInt(e.target.value) || 0;
+    updateStitchCounter();
+  });
+  
+  // Initialize stitch counter
+  updateStitchCounter();
+  updateRowHistory();
+
+  // Pattern Instructions Parser functionality
+  const patternInstructionsModal = document.getElementById('patternInstructionsModal');
+  const showPatternInputBtn = document.getElementById('showPatternInputBtn');
+  const closePatternInstructionsBtn = document.getElementById('closePatternInstructionsBtn');
+  const parsePatternBtn = document.getElementById('parsePatternBtn');
+  const applyParsedPatternBtn = document.getElementById('applyParsedPatternBtn');
+  const patternInstructionsInput = document.getElementById('patternInstructionsInput');
+  const parsedResultsDiv = document.getElementById('parsedResultsDiv');
+  const parsedResults = document.getElementById('parsedResults');
+  
+  showPatternInputBtn.addEventListener('click', () => {
+    patternInstructionsModal.classList.remove('hidden');
+  });
+  
+  closePatternInstructionsBtn.addEventListener('click', () => {
+    patternInstructionsModal.classList.add('hidden');
+  });
+  
+  function parsePatternInstructions(text) {
+    const rows = [];
+    const lines = text.split('\n').filter(line => line.trim());
+    
+    for (const line of lines) {
+      const rowMatch = line.match(/(?:Row|Rnd|Round)\s*(\d+):\s*(.+)/i);
+      if (rowMatch) {
+        const rowNumber = parseInt(rowMatch[1]);
+        const instructions = rowMatch[2];
+        
+        // Try to extract stitch count from parentheses at end
+        const countMatch = instructions.match(/\((\d+)\)\s*$/);
+        let stitchCount = countMatch ? parseInt(countMatch[1]) : null;
+        
+        // If no explicit count, try to calculate from instructions
+        if (!stitchCount) {
+          stitchCount = calculateStitchCount(instructions);
+        }
+        
+        rows.push({
+          row: rowNumber,
+          instructions: instructions.trim(),
+          stitchCount: stitchCount
+        });
+      }
+    }
+    
+    return rows;
+  }
+  
+  function calculateStitchCount(instructions) {
+    let count = 0;
+    const cleanInstructions = instructions.toLowerCase().replace(/\([^)]*\)/g, ''); // Remove parenthetical notes
+    
+    // Count chain stitches
+    const chainMatches = cleanInstructions.matchAll(/ch\s*(\d+)/g);
+    for (const match of chainMatches) {
+      count += parseInt(match[1]);
+    }
+    
+    // Count individual stitches (sc, dc, hdc, tr, etc.)
+    const stitchPatterns = [
+      /(\d+)\s*(sc|dc|hdc|tr|dtr|sl\s*st)/g,  // "5 sc"
+      /(sc|dc|hdc|tr|dtr|sl\s*st)(?!\w)/g    // single occurrences
+    ];
+    
+    for (const pattern of stitchPatterns) {
+      const matches = cleanInstructions.matchAll(pattern);
+      for (const match of matches) {
+        if (match[1] && /^\d+$/.test(match[1])) {
+          count += parseInt(match[1]);
+        } else if (!match[1] || !/^\d+$/.test(match[1])) {
+          count += 1;
+        }
+      }
+    }
+    
+    // Count increases (2 sc, inc)
+    const incMatches = cleanInstructions.matchAll(/(?:2\s*\w+\s*in|inc)/g);
+    for (const _ of incMatches) {
+      count += 1; // increase adds 1 extra stitch
+    }
+    
+    // Count decreases (sc2tog, dec)
+    const decMatches = cleanInstructions.matchAll(/(?:\w+2tog|dec)/g);
+    for (const _ of decMatches) {
+      count -= 1; // decrease removes 1 stitch
+    }
+    
+    return count > 0 ? count : null;
+  }
+  
+  parsePatternBtn.addEventListener('click', () => {
+    const text = patternInstructionsInput.value;
+    if (!text.trim()) {
+      alert('Please enter pattern instructions');
+      return;
+    }
+    
+    parsedRowData = parsePatternInstructions(text);
+    
+    if (parsedRowData.length === 0) {
+      alert('No valid rows found. Make sure your pattern includes "Row X:" or "Round X:" format.');
+      return;
+    }
+    
+    // Display results
+    let html = '<div class="space-y-2">';
+    parsedRowData.forEach(row => {
+      html += `<div class="p-2 bg-white border border-gray-300 rounded">
+        <div class="font-semibold">Row ${row.row}: <span class="text-black font-bold">${row.stitchCount || '?'} stitches</span></div>
+        <div class="text-xs text-gray-600 mt-1">${row.instructions}</div>
+      </div>`;
+    });
+    html += '</div>';
+    
+    parsedResults.innerHTML = html;
+    parsedResultsDiv.classList.remove('hidden');
+    applyParsedPatternBtn.classList.remove('hidden');
+  });
+  
+  applyParsedPatternBtn.addEventListener('click', () => {
+    if (parsedRowData.length === 0) return;
+    
+    // Apply first row's stitch count to counter
+    if (parsedRowData[0] && parsedRowData[0].stitchCount) {
+      stitchTarget = parsedRowData[0].stitchCount;
+      rowTargetInput.value = stitchTarget;
+      updateStitchCounter();
+    }
+    
+    patternInstructionsModal.classList.add('hidden');
+    alert(`Pattern loaded! ${parsedRowData.length} rows parsed. Row 1 target set to ${parsedRowData[0].stitchCount} stitches.`);
+  });
+
+  // Export to PNG functionality
+  const exportPNGBtn = document.getElementById('exportPNGBtn');
+  exportPNGBtn.addEventListener('click', async () => {
+    const gridContainer = document.getElementById('gridContainer');
+    try {
+      const canvas = await html2canvas(gridContainer, {
+        backgroundColor: '#ffffff',
+        scale: 2
+      });
+      
+      const link = document.createElement('a');
+      link.download = `pattern-${Date.now()}.png`;
+      link.href = canvas.toDataURL();
+      link.click();
+    } catch (error) {
+      alert('Error exporting PNG: ' + error.message);
+    }
+  });
+
+  // Export to PDF functionality
+  const exportPDFBtn = document.getElementById('exportPDFBtn');
+  exportPDFBtn.addEventListener('click', async () => {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    
+    try {
+      // Capture the entire grid container including number guides
+      const gridContainer = document.getElementById('gridContainer');
+      const canvas = await html2canvas(gridContainer, {
+        backgroundColor: '#ffffff',
+        scale: 2
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const imgWidth = 190;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      pdf.text('StitchViz Pattern', 10, 10);
+      pdf.addImage(imgData, 'PNG', 10, 15, imgWidth, imgHeight);
+      
+      // Add color list
+      const colorCounts = {};
+      const cells = patternGrid.querySelectorAll('td[data-row][data-col]');
+      cells.forEach(cell => {
+        const cellColor = cell.dataset.cellColor || cell.style.backgroundColor;
+        if (cellColor && cellColor !== 'rgb(255, 255, 255)' && cellColor !== 'white' && cellColor !== '') {
+          const hexColor = rgbToHex(cellColor);
+          colorCounts[hexColor] = (colorCounts[hexColor] || 0) + 1;
+        }
+      });
+      
+      if (Object.keys(colorCounts).length > 0) {
+        pdf.addPage();
+        pdf.setFontSize(16);
+        pdf.text('Color List', 10, 10);
+        pdf.setFontSize(8);
+        
+        const colors = Object.entries(colorCounts).sort((a, b) => b[1] - a[1]);
+        const colWidth = 19; // Width for each column
+        const rowHeight = 12; // Height for each color entry
+        const startX = 10;
+        let xPos = startX;
+        let yPos = 20;
+        let colIndex = 0;
+        
+        colors.forEach(([color, count], index) => {
+          // Calculate position in 10-column grid
+          colIndex = index % 10;
+          xPos = startX + (colIndex * colWidth);
+          
+          // Move to new row after 10 columns
+          if (colIndex === 0 && index > 0) {
+            yPos += rowHeight;
+          }
+          
+          // Add new page if needed
+          if (yPos > 275) {
+            pdf.addPage();
+            yPos = 20;
+          }
+          
+          // Draw color box
+          pdf.setFillColor(color);
+          pdf.rect(xPos, yPos, 5, 5, 'F');
+          pdf.setDrawColor(0);
+          pdf.rect(xPos, yPos, 5, 5, 'S');
+          
+          // Add color code and count
+          pdf.setFontSize(6);
+          pdf.text(color, xPos, yPos + 8);
+          pdf.text(`${count}`, xPos, yPos + 11);
+        });
+      }
+      
+      pdf.save(`pattern-${Date.now()}.pdf`);
+    } catch (error) {
+      alert('Error exporting PDF: ' + error.message);
+    }
+  });
+
+  // Save Pattern & My Patterns functionality
+  const savePatternBtn = document.getElementById('savePatternBtn');
+  const myPatternsBtn = document.getElementById('myPatternsBtn');
+  const savePatternModal = document.getElementById('savePatternModal');
+  const patternNameInput = document.getElementById('patternName');
+  const patternDescriptionInput = document.getElementById('patternDescription');
+  const cancelSaveBtn = document.getElementById('cancelSaveBtn');
+  const confirmSaveBtn = document.getElementById('confirmSaveBtn');
+  const myPatternsModal = document.getElementById('myPatternsModal');
+  const patternsGrid = document.getElementById('patternsGrid');
+  const closePatternsBtn = document.getElementById('closePatternsBtn');
+  
+  // Check authentication and disable buttons for guests
+  if (!isAuthenticated || isGuest) {
+    savePatternBtn.disabled = true;
+    savePatternBtn.style.opacity = '0.5';
+    savePatternBtn.style.cursor = 'not-allowed';
+    savePatternBtn.title = 'Please login or register to save patterns';
+    
+    myPatternsBtn.disabled = true;
+    myPatternsBtn.style.opacity = '0.5';
+    myPatternsBtn.style.cursor = 'not-allowed';
+    myPatternsBtn.title = 'Please login or register to view saved patterns';
+  } else {
+    loadPatternCount();
+  }
+  
+  savePatternBtn.addEventListener('click', () => {
+    if (!isAuthenticated || isGuest) {
+      alert('Please login or register to save patterns. Guest users cannot save patterns.');
+      return;
+    }
+    // Pre-fill name if updating existing pattern
+    if (currentPatternId && currentPatternName) {
+      patternNameInput.value = currentPatternName;
+    }
+    savePatternModal.classList.remove('hidden');
+  });
+  
+  cancelSaveBtn.addEventListener('click', () => {
+    savePatternModal.classList.add('hidden');
+    patternNameInput.value = '';
+    patternDescriptionInput.value = '';
+  });
+  
+  confirmSaveBtn.addEventListener('click', async () => {
+    const name = patternNameInput.value.trim();
+    if (!name) {
+      alert('Please enter a pattern name');
+      return;
+    }
+    
+    const cells = patternGrid.querySelectorAll('td[data-row][data-col]');
+    const patternData = [];
+    
+    cells.forEach(cell => {
+      const row = parseInt(cell.dataset.row);
+      const col = parseInt(cell.dataset.col);
+      const color = cell.dataset.cellColor || cell.style.backgroundColor;
+      
+      if (color && color !== 'rgb(255, 255, 255)' && color !== 'white' && color !== '') {
+        patternData.push({
+          row: row,
+          col: col,
+          color: rgbToHex(color)
+        });
+      }
+    });
+    
+    // For circular patterns, use circular data instead
+    const finalPatternData = patternMode === 'circular' ? (window.circularPatternData || []) : patternData;
+    
+    const pattern = {
+      name: name,
+      description: patternDescriptionInput.value.trim(),
+      grid_size: gridSize,
+      craft_type: currentCraft,
+      pattern_mode: patternMode,
+      pattern_data: finalPatternData,
+      current_row: currentRow,
+      current_col: currentCol,
+      pattern_instructions: patternInstructionsInput.value.trim(),
+      parsed_rows: parsedRowData,
+      stitch_count: stitchCount,
+      stitch_target: stitchTarget,
+      row_history: rowHistory,
+      is_public: false
+    };
+    
+    try {
+      const url = currentPatternId ? `/api/patterns/${currentPatternId}/` : '/api/patterns/';
+      const method = currentPatternId ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method: method,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrftoken
+        },
+        body: JSON.stringify(pattern)
+      });
+      
+      if (response.ok) {
+        const savedPattern = await response.json();
+        currentPatternId = savedPattern.id; // Update current pattern ID
+        alert('Pattern saved successfully!');
+        savePatternModal.classList.add('hidden');
+        loadPatternCount();
+      } else {
+        const error = await response.json();
+        alert('Error saving pattern: ' + JSON.stringify(error));
+      }
+    } catch (error) {
+      alert('Error saving pattern: ' + error.message);
+    }
+  });
+  
+  myPatternsBtn.addEventListener('click', async () => {
+    if (!isAuthenticated || isGuest) {
+      alert('Please login or register to view saved patterns.');
+      return;
+    }
+    await loadPatterns();
+    myPatternsModal.classList.remove('hidden');
+  });
+  
+  closePatternsBtn.addEventListener('click', () => {
+    myPatternsModal.classList.add('hidden');
+  });
+  
+  async function loadPatternCount() {
+    try {
+      const response = await fetch('/api/patterns/', {
+        headers: { 'X-CSRFToken': csrftoken }
+      });
+      if (response.ok) {
+        const patterns = await response.json();
+        document.getElementById('patternCount').textContent = patterns.length;
+      }
+    } catch (error) {
+      console.error('Error loading pattern count:', error);
+    }
+  }
+  
+  async function loadPatterns() {
+    try {
+      const response = await fetch('/api/patterns/', {
+        headers: { 'X-CSRFToken': csrftoken }
+      });
+      if (response.ok) {
+        const patterns = await response.json();
+        displayPatterns(patterns);
+      } else {
+        patternsGrid.innerHTML = '<p class="col-span-3 text-center text-gray-500">Error loading patterns</p>';
+      }
+    } catch (error) {
+      patternsGrid.innerHTML = '<p class="col-span-3 text-center text-gray-500">Error loading patterns</p>';
+    }
+  }
+  
+  function displayPatterns(patterns) {
+    if (patterns.length === 0) {
+      patternsGrid.innerHTML = '<p class="col-span-3 text-center text-gray-500">No saved patterns yet. Start creating!</p>';
+      return;
+    }
+    
+    patternsGrid.innerHTML = patterns.map(pattern => `
+      <div class="border border-gray-300 rounded-lg p-4 hover:shadow-lg transition">
+        <h4 class="font-bold mb-2">${pattern.name}</h4>
+        <p class="text-sm text-gray-600 mb-2">${pattern.description || 'No description'}</p>
+        <p class="text-xs text-gray-500 mb-2">Grid: ${pattern.grid_size}x${pattern.grid_size} | ${pattern.craft_type}</p>
+        <p class="text-xs text-gray-400 mb-3">${new Date(pattern.created_at).toLocaleDateString()}</p>
+        <div class="flex gap-2">
+          <button onclick="loadPattern(${pattern.id})" class="flex-1 px-3 py-1 bg-black text-white rounded hover:bg-gray-800 text-sm">Load</button>
+          <button onclick="deletePattern(${pattern.id})" class="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm">Delete</button>
+        </div>
+      </div>
+    `).join('');
+  }
+  
+  async function loadPattern(patternId) {
+    try {
+      const response = await fetch(`/api/patterns/${patternId}/`, {
+        headers: { 'X-CSRFToken': csrftoken }
+      });
+      if (response.ok) {
+        const pattern = await response.json();
+        
+        // Clear existing pattern data first
+        window.circularPatternData = [];
+        
+        currentPatternId = pattern.id; // Set current pattern ID
+        currentPatternName = pattern.name; // Set current pattern name
+        gridSize = pattern.grid_size;
+        gridSizeRange.value = gridSize;
+        gridSizeLabel.textContent = `${gridSize} x ${gridSize}`;
+        currentCraft = pattern.craft_type;
+        craftTypes.forEach(div => {
+          if (div.dataset.craft === currentCraft) {
+            selectCraft(div);
+          }
+        });
+        
+        // Restore pattern mode
+        patternMode = pattern.pattern_mode || 'rectangular';
+        if (patternMode === 'circular') {
+          // Set pattern data before switching modes
+          window.circularPatternData = pattern.pattern_data || [];
+          switchToCircularMode();
+        } else {
+          // For rectangular mode, switch without preserving old data
+          switchToRectangularMode(false);
+          // Load rectangular pattern data after grid is created
+          setTimeout(() => {
+            if (pattern.pattern_data && pattern.pattern_data.length > 0) {
+              pattern.pattern_data.forEach(cell => {
+                const td = patternGrid.querySelector(`td[data-row="${cell.row}"][data-col="${cell.col}"]`);
+                if (td) {
+                  td.dataset.cellColor = cell.color;
+                  td.style.backgroundColor = cell.color;
+                  applyCraftCellStyle(td);
+                }
+              });
+              updateStitchCount();
+            }
+          }, 100);
+        }
+        
+        // Restore progress tracking position
+        if (pattern.current_row !== null && pattern.current_col !== null) {
+          currentRow = pattern.current_row;
+          currentCol = pattern.current_col;
+          if (isTracking) {
+            updateTrackingDisplay();
+          }
+        }
+        
+        // Restore pattern instructions
+        if (pattern.pattern_instructions) {
+          patternInstructionsInput.value = pattern.pattern_instructions;
+        }
+        if (pattern.parsed_rows && pattern.parsed_rows.length > 0) {
+          parsedRowData = pattern.parsed_rows;
+        }
+        
+        // Restore stitch counter state
+        if (pattern.stitch_count !== undefined && pattern.stitch_count !== null) {
+          stitchCount = pattern.stitch_count;
+        }
+        if (pattern.stitch_target !== undefined && pattern.stitch_target !== null) {
+          stitchTarget = pattern.stitch_target;
+          rowTargetInput.value = stitchTarget;
+        }
+        if (pattern.row_history && Array.isArray(pattern.row_history)) {
+          rowHistory = pattern.row_history;
+          updateRowHistory();
+        }
+        updateStitchCounter();
+        
+        updateStitchCount();
+        myPatternsModal.classList.add('hidden');
+        alert('Pattern loaded successfully!');
+      } else {
+        alert('Error loading pattern');
+      }
+    } catch (error) {
+      alert('Error loading pattern: ' + error.message);
+    }
+  }
+  
+  async function deletePattern(patternId) {
+    if (!confirm('Are you sure you want to delete this pattern?')) return;
+    try {
+      const response = await fetch(`/api/patterns/${patternId}/`, {
+        method: 'DELETE',
+        headers: { 'X-CSRFToken': csrftoken }
+      });
+      if (response.ok || response.status === 204) {
+        alert('Pattern deleted successfully!');
+        await loadPatterns();
+        loadPatternCount();
+      } else {
+        alert('Error deleting pattern');
+      }
+    } catch (error) {
+      alert('Error deleting pattern: ' + error.message);
+    }
+  }
+  
+  // Dark Mode functionality
+  const darkModeToggle = document.getElementById('darkModeToggle');
+  let isDarkMode = false;
+
+  darkModeToggle.addEventListener('click', () => {
+    isDarkMode = !isDarkMode;
+    darkModeToggle.textContent = isDarkMode ? '○ Light Mode' : '◐ Dark Mode';
+    
+    if (isDarkMode) {
+      // Dark mode: black background, white text
+      document.body.style.backgroundColor = '#000000';
+      document.body.style.color = '#ffffff';
+      
+      // Update all white background sections to black with white text
+      document.querySelectorAll('.bg-white').forEach(el => {
+        if (!el.closest('#patternGrid') && el.id !== 'patternGrid') {
+          el.style.backgroundColor = '#000000';
+          el.style.color = '#ffffff';
+        }
+      });
+      
+      // Update gray backgrounds to dark
+      document.querySelectorAll('.bg-gray-100').forEach(el => {
+        el.style.backgroundColor = '#000000';
+      });
+      
+      // Update borders to white
+      document.querySelectorAll('.border-gray-200, .border-gray-300, .border-gray-800').forEach(el => {
+        if (!el.closest('#patternGrid') && el.id !== 'patternGrid') {
+          el.style.borderColor = '#ffffff';
+        }
+      });
+      
+      // Update hr lines to white
+      document.querySelectorAll('hr').forEach(hr => {
+        hr.style.borderTopColor = '#ffffff';
+      });
+      
+      // Update range slider track to white
+      const gridSizeRange = document.getElementById('gridSizeRange');
+      gridSizeRange.style.background = '#ffffff';
+      
+      // Update text colors
+      document.querySelectorAll('.text-gray-600').forEach(el => {
+        el.style.color = '#ffffff';
+      });
+      
+      // Update grid container and pattern grid backgrounds
+      const gridContainer = document.getElementById('gridContainer');
+      gridContainer.style.backgroundColor = '#000000';
+      patternGrid.style.backgroundColor = '#000000';
+      
+      // Update grid number headers to white text and black background
+      patternGrid.querySelectorAll('th').forEach(th => {
+        th.style.color = '#ffffff';
+        th.style.backgroundColor = '#000000';
+      });
+      
+      // Update grid guide numbers to white text
+      document.querySelectorAll('.grid-guide').forEach(guide => {
+        guide.style.color = '#ffffff';
+      });
+      
+      // Update stitch counter elements for dark mode
+      if (rowTargetInput) {
+        rowTargetInput.style.backgroundColor = '#000000';
+        rowTargetInput.style.color = '#ffffff';
+        rowTargetInput.style.borderColor = '#ffffff';
+      }
+      if (rowHistoryDisplay) {
+        rowHistoryDisplay.style.color = '#ffffff';
+      }
+      
+      // Update pattern instructions modal for dark mode
+      if (patternInstructionsInput) {
+        patternInstructionsInput.style.backgroundColor = '#000000';
+        patternInstructionsInput.style.color = '#ffffff';
+        patternInstructionsInput.style.borderColor = '#ffffff';
+      }
+      
+      // Update pattern mode buttons for dark mode
+      if (rectangularModeBtn && circularModeBtn) {
+        if (rectangularModeBtn.classList.contains('bg-black')) {
+          // Selected rectangular: white bg, black text in dark mode
+          rectangularModeBtn.style.backgroundColor = '#ffffff';
+          rectangularModeBtn.style.color = '#000000';
+          rectangularModeBtn.style.borderColor = '#ffffff';
+        } else {
+          // Unselected rectangular: black bg, white border, white text
+          rectangularModeBtn.style.backgroundColor = '#000000';
+          rectangularModeBtn.style.color = '#ffffff';
+          rectangularModeBtn.style.borderColor = '#ffffff';
+        }
+        
+        if (circularModeBtn.classList.contains('bg-black')) {
+          // Selected circular: white bg, black text in dark mode
+          circularModeBtn.style.backgroundColor = '#ffffff';
+          circularModeBtn.style.color = '#000000';
+          circularModeBtn.style.borderColor = '#ffffff';
+        } else {
+          // Unselected circular: black bg, white border, white text
+          circularModeBtn.style.backgroundColor = '#000000';
+          circularModeBtn.style.color = '#ffffff';
+          circularModeBtn.style.borderColor = '#ffffff';
+        }
+      }
+      
+      // Handle craft cards: selected = white bg/black text, unselected = black bg/white border/white text
+      document.querySelectorAll('.craft-card').forEach(card => {
+        if (card.classList.contains('!bg-black')) {
+          // Selected craft card: white background, black text
+          card.style.backgroundColor = '#ffffff';
+          card.style.color = '#000000';
+          card.style.borderColor = '#ffffff';
+        } else {
+          // Unselected craft card: black background, white border, white text
+          card.style.backgroundColor = '#000000';
+          card.style.color = '#ffffff';
+          card.style.borderColor = '#ffffff';
+        }
+      });
+      
+      // Handle tool buttons: selected = white bg/black text, unselected = black bg/white border/white text
+      const allTools = [pencilBtn, eraserBtn, fillBtn];
+      allTools.forEach(btn => {
+        if (btn.style.background === 'rgb(0, 0, 0)' || btn.style.background === '#000' || btn.classList.contains('bg-black')) {
+          // Selected tool: white background, black text
+          btn.style.background = '#fff';
+          btn.style.color = '#000';
+          btn.style.border = '1px solid #fff';
+        } else {
+          // Unselected tool: black background, white border, white text
+          btn.style.background = '#000';
+          btn.style.color = '#fff';
+          btn.style.border = '1px solid #fff';
+        }
+      });
+      
+      // Keep buttons styled appropriately
+      darkModeToggle.style.backgroundColor = '#ffffff';
+      darkModeToggle.style.color = '#000000';
+      
+    } else {
+      // Light mode: restore defaults
+      document.body.style.backgroundColor = '';
+      document.body.style.color = '';
+      
+      document.querySelectorAll('.bg-white').forEach(el => {
+        el.style.backgroundColor = '';
+        el.style.color = '';
+      });
+      
+      document.querySelectorAll('.bg-gray-100').forEach(el => {
+        el.style.backgroundColor = '';
+      });
+      
+      document.querySelectorAll('.border-gray-200, .border-gray-300, .border-gray-800').forEach(el => {
+        el.style.borderColor = '';
+      });
+      
+      // Reset hr lines
+      document.querySelectorAll('hr').forEach(hr => {
+        hr.style.borderTopColor = '';
+      });
+      
+      // Reset range slider
+      const gridSizeRange = document.getElementById('gridSizeRange');
+      gridSizeRange.style.background = '#d1d5db';
+      
+      document.querySelectorAll('.text-gray-600').forEach(el => {
+        el.style.color = '';
+      });
+      
+      // Reset grid container and pattern grid backgrounds
+      const gridContainer = document.getElementById('gridContainer');
+      gridContainer.style.backgroundColor = '';
+      patternGrid.style.backgroundColor = '';
+      
+      // Reset grid number headers to black text and white background
+      patternGrid.querySelectorAll('th').forEach(th => {
+        th.style.color = '#000000';
+        th.style.backgroundColor = 'white';
+      });
+      
+      // Reset grid guide numbers to black text
+      document.querySelectorAll('.grid-guide').forEach(guide => {
+        guide.style.color = '#000000';
+      });
+      
+      // Reset stitch counter elements for light mode
+      if (rowTargetInput) {
+        rowTargetInput.style.backgroundColor = '';
+        rowTargetInput.style.color = '';
+        rowTargetInput.style.borderColor = '';
+      }
+      if (rowHistoryDisplay) {
+        rowHistoryDisplay.style.color = '';
+      }
+      
+      // Reset pattern instructions modal for light mode
+      if (patternInstructionsInput) {
+        patternInstructionsInput.style.backgroundColor = '';
+        patternInstructionsInput.style.color = '';
+        patternInstructionsInput.style.borderColor = '';
+      }
+      
+      // Reset pattern mode buttons for light mode
+      if (rectangularModeBtn && circularModeBtn) {
+        rectangularModeBtn.style.backgroundColor = '';
+        rectangularModeBtn.style.color = '';
+        rectangularModeBtn.style.borderColor = '';
+        circularModeBtn.style.backgroundColor = '';
+        circularModeBtn.style.color = '';
+        circularModeBtn.style.borderColor = '';
+      }
+      
+      // Reset craft cards
+      document.querySelectorAll('.craft-card').forEach(card => {
+        card.style.backgroundColor = '';
+        card.style.color = '';
+        card.style.borderColor = '';
+      });
+      
+      darkModeToggle.style.backgroundColor = '';
+      darkModeToggle.style.color = '';
+    }
+  });
+
+  // Initialize
+  createGrid(gridSize);
+  createColorSwatches();
+  highlightSelectedColor();
+
+</script>
+
+</div>
+
+</body>
+</html>

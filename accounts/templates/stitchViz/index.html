@@ -1,0 +1,20 @@
+{% extends "stitchViz/base.html" %}
+
+{% load static %}
+
+{% block title %}Welcome | StitchViz{% endblock %}
+
+{% block content %}
+<div class="flex flex-col items-center mb-4">
+    <div class="flex items-center gap-2 mb-2">
+        <img src="{% static 'Logo-stitchViz.jpg' %}" alt="StitchViz Logo" class="h-20 w-20 rounded" />
+        <span class="text-2xl font-bold">StitchViz</span>
+    </div>
+    <p class="text-center">Visualize your crochet projects and count your stitches with ease.</p>
+</div>
+<div class="flex justify-center gap-4">
+    <a href="{% url 'login' %}" class="px-5 py-2 bg-black text-white rounded">Login</a>
+    <a href="{% url 'signup' %}" class="px-5 py-2 bg-black text-white rounded">Sign Up</a>
+    <a href="{% url 'guest_access' %}" class="px-5 py-2 bg-black text-white rounded">As Guest</a>
+</div>
+{% endblock %}
